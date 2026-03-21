@@ -1,5 +1,4 @@
 from fastapi import FastAPI, HTTPException, Path, Request
-from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 
@@ -11,7 +10,15 @@ from app.orchestrator import Orchestrator
 from app.payment import StubPaymentProvider
 from app.state_machine import InvalidTransition
 
-app = FastAPI(title="Order State Machine")
+app = FastAPI(
+    title="Order State Machine",
+    openapi_tags=[
+        {
+            "name": "Orders",
+            "description": "Order lifecycle operations",
+        }
+    ],
+)
 
 
 @app.exception_handler(InvalidTransition)
@@ -99,6 +106,7 @@ def _get_order_or_404(order_id: str) -> Order:
 
 @app.post(
     "/orders",
+    tags=["Orders"],
     status_code=201,
     response_model=Order,
     summary="Create an order",
@@ -120,6 +128,7 @@ def create_order(request: CreateOrderRequest):
 
 @app.get(
     "/orders/{order_id}",
+    tags=["Orders"],
     response_model=Order,
     summary="Get order details",
     description="Returns the current state and full transition history of an order.",
@@ -134,6 +143,7 @@ def get_order(order_id: str = Path(..., description="The order UUID", examples=[
 
 @app.post(
     "/orders/{order_id}/authorize",
+    tags=["Orders"],
     response_model=Order,
     summary="Authorize payment",
     description=(
@@ -172,6 +182,7 @@ def authorize_order(
 
 @app.post(
     "/orders/{order_id}/complete",
+    tags=["Orders"],
     response_model=Order,
     summary="Complete order",
     description=(
