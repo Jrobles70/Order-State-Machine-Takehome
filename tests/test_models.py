@@ -53,8 +53,10 @@ def test_order_creation():
     assert order.id is not None
     assert order.current_state.value == "initialized"
     assert order.amount == 99.99
-    assert order.card_number is None
+    assert order.last4 is None
     assert order.authorization_id is None
+    assert order.exp_month is None
+    assert order.exp_year is None
     assert order.history == []
     assert order.created_at is not None
 

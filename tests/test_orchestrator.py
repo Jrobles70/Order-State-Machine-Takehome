@@ -12,10 +12,14 @@ def orchestrator():
 
 def test_authorize_success(orchestrator):
     order = Order(amount=100.00)
-    result = orchestrator.authorize(order, card_number="4242424242424242")
+    result = orchestrator.authorize(
+        order, card_number="4242424242424242", exp_month=12, exp_year=2028
+    )
 
     assert result.current_state == OrderState.PAYMENT_AUTHORIZED
-    assert result.card_number == "4242424242424242"
+    assert result.last4 == "4242"
+    assert result.exp_month == 12
+    assert result.exp_year == 2028
     assert result.authorization_id is not None
     assert len(result.history) == 1
     assert result.history[0].from_state == OrderState.INITIALIZED
@@ -26,7 +30,9 @@ def test_authorize_success(orchestrator):
 
 def test_authorize_decline(orchestrator):
     order = Order(amount=100.00)
-    result = orchestrator.authorize(order, card_number="4000000000000002")
+    result = orchestrator.authorize(
+        order, card_number="4000000000000002", exp_month=12, exp_year=2028
+    )
 
     assert result.current_state == OrderState.REJECTED
     assert len(result.history) == 1
@@ -44,13 +50,17 @@ def test_authorize_invalid_state(orchestrator):
     from app.state_machine import InvalidTransition
 
     with pytest.raises(InvalidTransition):
-        orchestrator.authorize(order, card_number="4242424242424242")
+        orchestrator.authorize(
+            order, card_number="4242424242424242", exp_month=12, exp_year=2028
+        )
 
 
 def _authorized_order(orchestrator, card_number="4242424242424242"):
     """Helper: create and authorize an order."""
     order = Order(amount=100.00)
-    return orchestrator.authorize(order, card_number=card_number)
+    return orchestrator.authorize(
+        order, card_number=card_number, exp_month=12, exp_year=2028
+    )
 
 
 def test_complete_happy_path(orchestrator):
