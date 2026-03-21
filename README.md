@@ -37,7 +37,7 @@ make setup
 make run
 ```
 
-API docs available at http://localhost:8000/docs
+Once the server is running, I recommend using the interactive API docs at http://localhost:8000/docs to explore and test the endpoints.
 
 ### Run Tests
 ```bash
@@ -79,3 +79,4 @@ make test
 - **Webhook/callback support** for `needs_attention` orders to alert operations teams
 - **Separate fulfillment interface** — a proper `FulfillmentProvider` abstraction rather than card-based simulation
 - **Richer order pricing** — taxes, per-ticket pricing breakdowns, and discount/promo code support
+- **State history** - Add Dashboard or endpoint to properly display state history for easy debugging
