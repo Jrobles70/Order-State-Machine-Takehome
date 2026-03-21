@@ -16,7 +16,8 @@ def _valid_create_payload(**overrides):
         "quantity": 2,
         "section": "A",
         "row": "1",
-        "amount": 99.99,
+        "amount_cents": 9999,
+        "currency": "USD",
     }
     base.update(overrides)
     return base
@@ -27,7 +28,8 @@ def test_create_order(client):
     assert response.status_code == 201
     data = response.json()
     assert data["current_state"] == "initialized"
-    assert data["amount"] == 99.99
+    assert data["amount_cents"] == 9999
+    assert data["currency"] == "USD"
     assert data["event_id"] == "EVT-001"
     assert data["quantity"] == 2
     assert data["section"] == "A"
@@ -215,14 +217,33 @@ def test_fulfillment_failure(client):
     assert len(data["history"]) == 3
 
 
-def test_create_order_rejects_zero_amount(client):
-    response = client.post("/orders", json=_valid_create_payload(amount=0))
+def test_create_order_rejects_zero_amount_cents(client):
+    response = client.post("/orders", json=_valid_create_payload(amount_cents=0))
     assert response.status_code == 422
 
 
-def test_create_order_rejects_negative_amount(client):
-    response = client.post("/orders", json=_valid_create_payload(amount=-10.00))
+def test_create_order_rejects_negative_amount_cents(client):
+    response = client.post("/orders", json=_valid_create_payload(amount_cents=-1000))
     assert response.status_code == 422
+
+
+def test_create_order_rejects_invalid_currency(client):
+    response = client.post("/orders", json=_valid_create_payload(currency="EUR"))
+    assert response.status_code == 422
+
+
+def test_create_order_rejects_missing_currency(client):
+    payload = _valid_create_payload()
+    del payload["currency"]
+    response = client.post("/orders", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_order_coerces_float_amount_cents(client):
+    """Pydantic v2 coerces 9999.0 to 9999 for int fields by default."""
+    response = client.post("/orders", json=_valid_create_payload(amount_cents=9999.0))
+    assert response.status_code == 201
+    assert response.json()["amount_cents"] == 9999
 
 
 def test_create_order_rejects_zero_quantity(client):

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, field_validator, model_validator
 
 from app import store
-from app.models import Order
+from app.models import Order, Currency
 from app.orchestrator import Orchestrator
 from app.payment import StubPaymentProvider
 from app.state_machine import InvalidTransition
@@ -24,13 +24,14 @@ class CreateOrderRequest(BaseModel):
     quantity: int
     section: str
     row: str
-    amount: float
+    amount_cents: int
+    currency: Currency
 
-    @field_validator("amount")
+    @field_validator("amount_cents")
     @classmethod
-    def amount_must_be_positive(cls, v: float) -> float:
+    def amount_cents_must_be_positive(cls, v: int) -> int:
         if v <= 0:
-            raise ValueError("amount must be greater than 0")
+            raise ValueError("amount_cents must be greater than 0")
         return v
 
     @field_validator("quantity")
@@ -98,7 +99,8 @@ def create_order(request: CreateOrderRequest):
         quantity=request.quantity,
         section=request.section,
         row=request.row,
-        amount=request.amount,
+        amount_cents=request.amount_cents,
+        currency=request.currency,
     )
     store.save(order)
     return order
