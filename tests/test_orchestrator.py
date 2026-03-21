@@ -1,0 +1,123 @@
+import pytest
+
+from app.models import Order, OrderState
+from app.orchestrator import Orchestrator
+from app.payment import StubPaymentProvider
+
+
+@pytest.fixture
+def orchestrator():
+    return Orchestrator(payment_provider=StubPaymentProvider())
+
+
+def test_authorize_success(orchestrator):
+    order = Order(amount=100.00)
+    result = orchestrator.authorize(order, card_number="4242424242424242")
+
+    assert result.current_state == OrderState.PAYMENT_AUTHORIZED
+    assert result.card_number == "4242424242424242"
+    assert result.authorization_id is not None
+    assert len(result.history) == 1
+    assert result.history[0].from_state == OrderState.INITIALIZED
+    assert result.history[0].to_state == OrderState.PAYMENT_AUTHORIZED
+    assert result.history[0].trigger == "authorize"
+    assert result.history[0].errors == []
+
+
+def test_authorize_decline(orchestrator):
+    order = Order(amount=100.00)
+    result = orchestrator.authorize(order, card_number="4000000000000002")
+
+    assert result.current_state == OrderState.REJECTED
+    assert len(result.history) == 1
+    assert result.history[0].from_state == OrderState.INITIALIZED
+    assert result.history[0].to_state == OrderState.REJECTED
+    assert result.history[0].trigger == "authorize"
+    assert len(result.history[0].errors) == 1
+    assert result.history[0].errors[0].action == "authorize"
+
+
+def test_authorize_invalid_state(orchestrator):
+    order = Order(amount=100.00)
+    order.current_state = OrderState.PAYMENT_AUTHORIZED
+
+    from app.state_machine import InvalidTransition
+
+    with pytest.raises(InvalidTransition):
+        orchestrator.authorize(order, card_number="4242424242424242")
+
+
+def _authorized_order(orchestrator, card_number="4242424242424242"):
+    """Helper: create and authorize an order."""
+    order = Order(amount=100.00)
+    return orchestrator.authorize(order, card_number=card_number)
+
+
+def test_complete_happy_path(orchestrator):
+    order = _authorized_order(orchestrator)
+    result = orchestrator.complete(order)
+
+    assert result.current_state == OrderState.COMPLETE
+    # History: authorize, capture->captured, fulfill->complete
+    assert len(result.history) == 3
+    assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED
+    assert result.history[1].to_state == OrderState.CAPTURED
+    assert result.history[1].trigger == "complete"
+    assert result.history[2].from_state == OrderState.CAPTURED
+    assert result.history[2].to_state == OrderState.COMPLETE
+    assert result.history[2].trigger == "complete"
+
+
+def test_complete_capture_fails_void_succeeds(orchestrator):
+    order = _authorized_order(orchestrator, card_number="4000000000000341")
+    result = orchestrator.complete(order)
+
+    assert result.current_state == OrderState.CANCELLED
+    # History: authorize, then cancelled (with capture error)
+    assert len(result.history) == 2
+    assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED
+    assert result.history[1].to_state == OrderState.CANCELLED
+    assert result.history[1].trigger == "auto_void"
+    assert len(result.history[1].errors) == 1
+    assert result.history[1].errors[0].action == "capture"
+
+
+def test_complete_capture_fails_void_fails(orchestrator):
+    order = _authorized_order(orchestrator, card_number="4000000000009995")
+    result = orchestrator.complete(order)
+
+    assert result.current_state == OrderState.NEEDS_ATTENTION
+    # History: authorize, then needs_attention (with capture + void errors)
+    assert len(result.history) == 2
+    assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED
+    assert result.history[1].to_state == OrderState.NEEDS_ATTENTION
+    assert result.history[1].trigger == "auto_escalation"
+    assert len(result.history[1].errors) == 2
+    assert result.history[1].errors[0].action == "capture"
+    assert result.history[1].errors[1].action == "void"
+
+
+def test_complete_fulfillment_fails(orchestrator):
+    order = _authorized_order(orchestrator, card_number="4000000000000259")
+    result = orchestrator.complete(order)
+
+    assert result.current_state == OrderState.NEEDS_ATTENTION
+    # History: authorize, captured, then needs_attention (with fulfill error)
+    assert len(result.history) == 3
+    assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED
+    assert result.history[1].to_state == OrderState.CAPTURED
+    assert result.history[1].trigger == "complete"
+    assert result.history[2].from_state == OrderState.CAPTURED
+    assert result.history[2].to_state == OrderState.NEEDS_ATTENTION
+    assert result.history[2].trigger == "auto_escalation"
+    assert len(result.history[2].errors) == 1
+    assert result.history[2].errors[0].action == "fulfill"
+
+
+def test_complete_invalid_state(orchestrator):
+    order = Order(amount=100.00)  # still initialized, not authorized
+
+    from app.state_machine import InvalidTransition
+
+    with pytest.raises(InvalidTransition):
+        orchestrator.complete(order)
