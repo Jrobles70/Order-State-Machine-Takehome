@@ -29,7 +29,7 @@ class Orchestrator:
 
     def authorize(self, order: Order, card_number: str, exp_month: int, exp_year: int) -> Order:
         rule = get_transition(order.current_state, "authorize")
-        result = self._payment.authorize(card_number, order.amount)
+        result = self._payment.authorize(card_number, order.amount_cents)
 
         if result.success:
             order.last4 = card_number[-4:]

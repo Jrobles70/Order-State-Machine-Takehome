@@ -11,7 +11,7 @@ def orchestrator():
 
 
 def test_authorize_success(orchestrator):
-    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=100.00)
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount_cents=10000, currency="USD")
     result = orchestrator.authorize(
         order, card_number="4242424242424242", exp_month=12, exp_year=2028
     )
@@ -29,7 +29,7 @@ def test_authorize_success(orchestrator):
 
 
 def test_authorize_decline(orchestrator):
-    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=100.00)
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount_cents=10000, currency="USD")
     result = orchestrator.authorize(
         order, card_number="4000000000000002", exp_month=12, exp_year=2028
     )
@@ -44,7 +44,7 @@ def test_authorize_decline(orchestrator):
 
 
 def test_authorize_invalid_state(orchestrator):
-    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=100.00)
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount_cents=10000, currency="USD")
     order.current_state = OrderState.PAYMENT_AUTHORIZED
 
     from app.state_machine import InvalidTransition
@@ -57,7 +57,7 @@ def test_authorize_invalid_state(orchestrator):
 
 def _authorized_order(orchestrator, card_number="4242424242424242"):
     """Helper: create and authorize an order."""
-    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=100.00)
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount_cents=10000, currency="USD")
     return orchestrator.authorize(
         order, card_number=card_number, exp_month=12, exp_year=2028
     )
@@ -125,7 +125,7 @@ def test_complete_fulfillment_fails(orchestrator):
 
 
 def test_complete_invalid_state(orchestrator):
-    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=100.00)  # still initialized, not authorized
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount_cents=10000, currency="USD")  # still initialized, not authorized
 
     from app.state_machine import InvalidTransition
 
