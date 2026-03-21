@@ -198,6 +198,16 @@ def test_fulfillment_failure(client):
     assert len(data["history"]) == 3
 
 
+def test_create_order_rejects_zero_amount(client):
+    response = client.post("/orders", json={"amount": 0})
+    assert response.status_code == 422
+
+
+def test_create_order_rejects_negative_amount(client):
+    response = client.post("/orders", json={"amount": -10.00})
+    assert response.status_code == 422
+
+
 def test_get_order(client):
     create = client.post("/orders", json={"amount": 75.00})
     order_id = create.json()["id"]
