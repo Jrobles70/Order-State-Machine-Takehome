@@ -1,8 +1,8 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Path, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app import store
 from app.models import Order, Currency
@@ -20,12 +20,12 @@ orchestrator = Orchestrator(payment_provider=StubPaymentProvider())
 
 
 class CreateOrderRequest(BaseModel):
-    event_id: str
-    quantity: int
-    section: str
-    row: str
-    amount_cents: int
-    currency: Currency
+    event_id: str = Field(..., description="Identifier for the event being purchased", examples=["evt-123"])
+    quantity: int = Field(..., gt=0, description="Number of tickets to purchase", examples=[2])
+    section: str = Field(..., description="Seating section", examples=["A"])
+    row: str = Field(..., description="Seating row", examples=["1"])
+    amount_cents: int = Field(..., gt=0, description="Total order amount in cents", examples=[9999])
+    currency: Currency = Field(..., description="Currency code", examples=["USD"])
 
     @field_validator("amount_cents")
     @classmethod
@@ -43,10 +43,10 @@ class CreateOrderRequest(BaseModel):
 
 
 class AuthorizeRequest(BaseModel):
-    card_number: str
-    exp_month: int
-    exp_year: int
-    cvv: str
+    card_number: str = Field(..., description="Card number (13-19 digits). See test cards above.", examples=["4242424242424242"])
+    exp_month: int = Field(..., ge=1, le=12, description="Card expiration month (1-12)", examples=[12])
+    exp_year: int = Field(..., description="Card expiration year (4-digit)", examples=[2027])
+    cvv: str = Field(..., description="Card security code (3-4 digits)", examples=["123"])
 
     @field_validator("card_number")
     @classmethod
@@ -85,6 +85,10 @@ class AuthorizeRequest(BaseModel):
         return v
 
 
+class ErrorResponse(BaseModel):
+    detail: str = Field(..., description="Error message describing what went wrong")
+
+
 def _get_order_or_404(order_id: str) -> Order:
     order = store.get(order_id)
     if order is None:
@@ -92,7 +96,14 @@ def _get_order_or_404(order_id: str) -> Order:
     return order
 
 
-@app.post("/orders", status_code=201)
+@app.post(
+    "/orders",
+    status_code=201,
+    response_model=Order,
+    summary="Create an order",
+    description="Creates a new order in the `initialized` state.",
+    responses={422: {"description": "Validation error (e.g. negative amount, missing fields)", "content": {"application/json": {"example": {"detail": [{"type": "greater_than", "loc": ["body", "amount_cents"], "msg": "Input should be greater than 0", "input": -5, "ctx": {"gt": 0}}]}}}}},
+)
 def create_order(request: CreateOrderRequest):
     order = Order(
         event_id=request.event_id,
@@ -106,13 +117,44 @@ def create_order(request: CreateOrderRequest):
     return order
 
 
-@app.get("/orders/{order_id}")
-def get_order(order_id: str):
+@app.get(
+    "/orders/{order_id}",
+    response_model=Order,
+    summary="Get order details",
+    description="Returns the current state and full transition history of an order.",
+    responses={404: {"model": ErrorResponse, "description": "Order not found", "content": {"application/json": {"example": {"detail": "Order not found"}}}}},
+)
+def get_order(order_id: str = Path(..., description="The order UUID", examples=["550e8400-e29b-41d4-a716-446655440000"])):
     return _get_order_or_404(order_id)
 
 
-@app.post("/orders/{order_id}/authorize")
-def authorize_order(order_id: str, request: AuthorizeRequest):
+@app.post(
+    "/orders/{order_id}/authorize",
+    response_model=Order,
+    summary="Authorize payment",
+    description=(
+        "Authorizes payment for an order. The order must be in `initialized` state. "
+        "On success the order transitions to `payment_authorized`. "
+        "On decline the order transitions to `rejected`.\n\n"
+        "**Test card numbers:**\n\n"
+        "| Card Number | Behavior |\n"
+        "| --- | --- |\n"
+        "| `4111111111111111` | Success (or any valid card not listed below) |\n"
+        "| `4000000000000002` | Authorization declined → `rejected` |\n"
+        "| `4000000000000341` | Authorizes OK, capture fails, void succeeds → `cancelled` |\n"
+        "| `4000000000009995` | Authorizes OK, capture fails, void fails → `needs_attention` |\n"
+        "| `4000000000000259` | Authorizes OK, capture OK, fulfillment fails → `needs_attention` |\n"
+    ),
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid state transition (order is not in `initialized` state)", "content": {"application/json": {"example": {"detail": "Invalid transition: cannot 'authorize' from 'payment_authorized'"}}}},
+        404: {"model": ErrorResponse, "description": "Order not found", "content": {"application/json": {"example": {"detail": "Order not found"}}}},
+        422: {"description": "Validation error (e.g. invalid card number, expired card)", "content": {"application/json": {"example": {"detail": [{"type": "value_error", "loc": ["body", "card_number"], "msg": "Value error, card_number must be 13-19 digits", "input": "123", "ctx": {"error": {}}}]}}}},
+    },
+)
+def authorize_order(
+    request: AuthorizeRequest,
+    order_id: str = Path(..., description="The order UUID"),
+):
     order = _get_order_or_404(order_id)
     order = orchestrator.authorize(
         order,
@@ -124,8 +166,22 @@ def authorize_order(order_id: str, request: AuthorizeRequest):
     return order
 
 
-@app.post("/orders/{order_id}/complete")
-def complete_order(order_id: str):
+@app.post(
+    "/orders/{order_id}/complete",
+    response_model=Order,
+    summary="Complete order",
+    description=(
+        "Captures payment and fulfills the order. The order must be in `payment_authorized` state. "
+        "On success: `payment_authorized` → `captured` → `complete`. "
+        "On capture failure: attempts void — if void succeeds → `cancelled`, if void fails → `needs_attention`. "
+        "On fulfillment failure: → `needs_attention`."
+    ),
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid state transition (order is not in `payment_authorized` state)", "content": {"application/json": {"example": {"detail": "Invalid transition: cannot 'capture' from 'initialized'"}}}},
+        404: {"model": ErrorResponse, "description": "Order not found", "content": {"application/json": {"example": {"detail": "Order not found"}}}},
+    },
+)
+def complete_order(order_id: str = Path(..., description="The order UUID")):
     order = _get_order_or_404(order_id)
     order = orchestrator.complete(order)
     store.save(order)

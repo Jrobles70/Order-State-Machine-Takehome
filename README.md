@@ -48,8 +48,8 @@ make test
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/orders` | Create an order (`{"amount": 99.99}`) |
-| POST | `/orders/{id}/authorize` | Authorize payment (`{"card_number": "4242..."}`) |
+| POST | `/orders` | Create an order (`{"event_id": "...", "quantity": 2, "section": "A", "row": "1", "amount_cents": 9999, "currency": "USD"}`) |
+| POST | `/orders/{id}/authorize` | Authorize payment (`{"card_number": "4242...", "exp_month": 12, "exp_year": 2027, "cvv": "123"}`) |
 | POST | `/orders/{id}/complete` | Capture + fulfill (with automatic recovery) |
 | GET | `/orders/{id}` | Get order state and full history |
 
@@ -74,7 +74,8 @@ make test
 
 - **Persistent storage** with PostgreSQL and a repository pattern for easy swap
 - **Richer history metadata** — card last four digits, authorization IDs, provider error codes on each history entry
-- **Async payment calls** with configurable timeouts
+- **Separate payment attempt model** — move authorization/capture/void identifiers and attempt metadata off the `Order` model into a dedicated payment-attempts record
 - **Idempotency keys** on action endpoints to prevent duplicate processing
 - **Webhook/callback support** for `needs_attention` orders to alert operations teams
 - **Separate fulfillment interface** — a proper `FulfillmentProvider` abstraction rather than card-based simulation
+- **Richer order pricing** — taxes, per-ticket pricing breakdowns, and discount/promo code support

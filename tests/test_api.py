@@ -55,6 +55,7 @@ def test_authorize_order(client):
     assert data["current_state"] == "payment_authorized"
     assert data["exp_month"] == 12
     assert data["exp_year"] == 2028
+    assert data["capture_id"] is None
     assert len(data["history"]) == 1
 
 
@@ -168,6 +169,8 @@ def test_complete_order_happy_path(client):
     assert response.status_code == 200
     data = response.json()
     assert data["current_state"] == "complete"
+    assert data["capture_id"] is not None
+    assert data["capture_id"].startswith("cap_")
     assert len(data["history"]) == 3
 
 
@@ -191,6 +194,7 @@ def test_capture_fail_void_succeeds(client):
     assert response.status_code == 200
     data = response.json()
     assert data["current_state"] == "cancelled"
+    assert data["capture_id"] is None
 
 
 def test_capture_fail_void_fails(client):
@@ -202,6 +206,7 @@ def test_capture_fail_void_fails(client):
     assert response.status_code == 200
     data = response.json()
     assert data["current_state"] == "needs_attention"
+    assert data["capture_id"] is None
     assert len(data["history"][1]["errors"]) == 2
 
 
@@ -214,6 +219,8 @@ def test_fulfillment_failure(client):
     assert response.status_code == 200
     data = response.json()
     assert data["current_state"] == "needs_attention"
+    assert data["capture_id"] is not None
+    assert data["capture_id"].startswith("cap_")
     assert len(data["history"]) == 3
 
 

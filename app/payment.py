@@ -39,7 +39,12 @@ class StubPaymentProvider(PaymentProvider):
         card = self._authorizations.get(authorization_id, "")
         if card in (CAPTURE_FAIL_VOID_OK_CARD, CAPTURE_FAIL_VOID_FAIL_CARD):
             return PaymentResult(success=False, error="capture failed")
-        return PaymentResult(success=True, authorization_id=authorization_id)
+        capture_id = f"cap_{uuid.uuid4().hex[:12]}"
+        return PaymentResult(
+            success=True,
+            authorization_id=authorization_id,
+            capture_id=capture_id,
+        )
 
     def void(self, authorization_id: str) -> PaymentResult:
         card = self._authorizations.get(authorization_id, "")

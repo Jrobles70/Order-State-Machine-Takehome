@@ -66,6 +66,7 @@ class Orchestrator:
             return order
 
         # Capture succeeded
+        order.capture_id = capture_result.capture_id
         self._apply_transition(order, capture_rule.success_state, "complete")
 
         # Phase 2: Fulfill order

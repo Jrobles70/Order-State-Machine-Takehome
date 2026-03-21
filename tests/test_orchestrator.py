@@ -21,6 +21,7 @@ def test_authorize_success(orchestrator):
     assert result.exp_month == 12
     assert result.exp_year == 2028
     assert result.authorization_id is not None
+    assert result.capture_id is None
     assert len(result.history) == 1
     assert result.history[0].from_state == OrderState.INITIALIZED
     assert result.history[0].to_state == OrderState.PAYMENT_AUTHORIZED
@@ -68,6 +69,8 @@ def test_complete_happy_path(orchestrator):
     result = orchestrator.complete(order)
 
     assert result.current_state == OrderState.COMPLETE
+    assert result.capture_id is not None
+    assert result.capture_id.startswith("cap_")
     # History: authorize, capture->captured, fulfill->complete
     assert len(result.history) == 3
     assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED
@@ -83,6 +86,7 @@ def test_complete_capture_fails_void_succeeds(orchestrator):
     result = orchestrator.complete(order)
 
     assert result.current_state == OrderState.CANCELLED
+    assert result.capture_id is None
     # History: authorize, then cancelled (with capture error)
     assert len(result.history) == 2
     assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED
@@ -97,6 +101,7 @@ def test_complete_capture_fails_void_fails(orchestrator):
     result = orchestrator.complete(order)
 
     assert result.current_state == OrderState.NEEDS_ATTENTION
+    assert result.capture_id is None
     # History: authorize, then needs_attention (with capture + void errors)
     assert len(result.history) == 2
     assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED
@@ -112,6 +117,8 @@ def test_complete_fulfillment_fails(orchestrator):
     result = orchestrator.complete(order)
 
     assert result.current_state == OrderState.NEEDS_ATTENTION
+    assert result.capture_id is not None
+    assert result.capture_id.startswith("cap_")
     # History: authorize, captured, then needs_attention (with fulfill error)
     assert len(result.history) == 3
     assert result.history[1].from_state == OrderState.PAYMENT_AUTHORIZED

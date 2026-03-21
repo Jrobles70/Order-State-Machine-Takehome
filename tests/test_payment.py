@@ -25,6 +25,9 @@ def test_capture_success_default_card():
     auth = provider.authorize("4242424242424242", 10000)
     result = provider.capture(auth.authorization_id)
     assert result.success is True
+    assert result.capture_id is not None
+    assert result.capture_id.startswith("cap_")
+    assert result.authorization_id == auth.authorization_id
 
 
 def test_capture_fails_for_capture_fail_card():
@@ -35,6 +38,7 @@ def test_capture_fails_for_capture_fail_card():
     result = provider.capture(auth.authorization_id)
     assert result.success is False
     assert result.error != ""
+    assert result.capture_id is None
 
 
 def test_void_succeeds_for_capture_fail_card():
@@ -64,6 +68,7 @@ def test_fulfillment_fail_card_capture_succeeds():
     auth = provider.authorize("4000000000000259", 10000)
     result = provider.capture(auth.authorization_id)
     assert result.success is True
+    assert result.capture_id is not None
 
 
 def test_should_fail_fulfillment():

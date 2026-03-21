@@ -71,6 +71,7 @@ def test_order_creation():
     assert order.currency == Currency.USD
     assert order.last4 is None
     assert order.authorization_id is None
+    assert order.capture_id is None
     assert order.exp_month is None
     assert order.exp_year is None
     assert order.history == []

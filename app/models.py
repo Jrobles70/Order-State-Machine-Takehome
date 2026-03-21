@@ -47,6 +47,7 @@ class Order(BaseModel):
     exp_month: Optional[int] = None
     exp_year: Optional[int] = None
     authorization_id: Optional[str] = None
+    capture_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     history: List[HistoryEntry] = []
 
@@ -54,4 +55,5 @@ class Order(BaseModel):
 class PaymentResult(BaseModel):
     success: bool
     authorization_id: Optional[str] = None
+    capture_id: Optional[str] = None
     error: str = ""
