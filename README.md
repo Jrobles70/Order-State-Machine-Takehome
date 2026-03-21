@@ -29,19 +29,19 @@ initialized → payment_authorized → captured → complete
 
 ### Setup
 ```bash
-pip install -e ".[dev]"
+make setup
 ```
 
 ### Start the Server
 ```bash
-uvicorn app.main:app --reload
+make run
 ```
 
 API docs available at http://localhost:8000/docs
 
 ### Run Tests
 ```bash
-pytest -v
+make test
 ```
 
 ## API
