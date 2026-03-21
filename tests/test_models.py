@@ -49,7 +49,7 @@ def test_history_entry_with_errors():
 def test_order_creation():
     from app.models import Order
 
-    order = Order(amount=99.99)
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=99.99)
     assert order.id is not None
     assert order.current_state.value == "initialized"
     assert order.amount == 99.99
@@ -64,7 +64,7 @@ def test_order_creation():
 def test_order_add_history():
     from app.models import HistoryEntry, Order, OrderState
 
-    order = Order(amount=50.00)
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=50.00)
     entry = HistoryEntry(
         from_state=OrderState.INITIALIZED,
         to_state=OrderState.PAYMENT_AUTHORIZED,

@@ -32,6 +32,10 @@ class HistoryEntry(BaseModel):
 class Order(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     current_state: OrderState = OrderState.INITIALIZED
+    event_id: str
+    quantity: int
+    section: str
+    row: str
     amount: float
     last4: Optional[str] = None
     exp_month: Optional[int] = None

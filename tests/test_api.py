@@ -9,17 +9,34 @@ def client():
     return TestClient(app)
 
 
+def _valid_create_payload(**overrides):
+    """Return a valid create-order payload, with optional overrides."""
+    base = {
+        "event_id": "EVT-001",
+        "quantity": 2,
+        "section": "A",
+        "row": "1",
+        "amount": 99.99,
+    }
+    base.update(overrides)
+    return base
+
+
 def test_create_order(client):
-    response = client.post("/orders", json={"amount": 99.99})
+    response = client.post("/orders", json=_valid_create_payload())
     assert response.status_code == 201
     data = response.json()
     assert data["current_state"] == "initialized"
     assert data["amount"] == 99.99
+    assert data["event_id"] == "EVT-001"
+    assert data["quantity"] == 2
+    assert data["section"] == "A"
+    assert data["row"] == "1"
     assert data["history"] == []
 
 
 def test_authorize_order(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(
@@ -40,7 +57,7 @@ def test_authorize_order(client):
 
 
 def test_authorize_rejects_invalid_exp_month(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(
@@ -51,7 +68,7 @@ def test_authorize_rejects_invalid_exp_month(client):
 
 
 def test_authorize_rejects_invalid_cvv(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(
@@ -62,7 +79,7 @@ def test_authorize_rejects_invalid_cvv(client):
 
 
 def test_authorize_rejects_non_4_digit_exp_year(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(
@@ -73,7 +90,7 @@ def test_authorize_rejects_non_4_digit_exp_year(client):
 
 
 def test_authorize_rejects_expired_card(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(
@@ -90,7 +107,7 @@ def test_authorize_rejects_expired_card_current_year_past_month(client):
     now = datetime.now(timezone.utc)
     # Use a month in the past of the current year (only valid if we're not in January)
     if now.month > 1:
-        response = client.post("/orders", json={"amount": 50.00})
+        response = client.post("/orders", json=_valid_create_payload(amount=50.00))
         order_id = response.json()["id"]
 
         resp = client.post(
@@ -106,7 +123,7 @@ def test_authorize_rejects_expired_card_current_year_past_month(client):
 
 
 def test_authorize_rejects_non_digit_card_number(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(
@@ -117,7 +134,7 @@ def test_authorize_rejects_non_digit_card_number(client):
 
 
 def test_authorize_rejects_card_number_wrong_length(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(
@@ -129,7 +146,7 @@ def test_authorize_rejects_card_number_wrong_length(client):
 
 def test_cvv_not_on_order(client):
     """CVV must never be stored on the Order model."""
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     client.post(
@@ -141,7 +158,7 @@ def test_cvv_not_on_order(client):
 
 
 def test_complete_order_happy_path(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
     client.post(f"/orders/{order_id}/authorize", json={"card_number": "4242424242424242", "exp_month": 12, "exp_year": 2028, "cvv": "123"})
 
@@ -153,7 +170,7 @@ def test_complete_order_happy_path(client):
 
 
 def test_payment_decline(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     response = client.post(f"/orders/{order_id}/authorize", json={"card_number": "4000000000000002", "exp_month": 12, "exp_year": 2028, "cvv": "123"})
@@ -164,7 +181,7 @@ def test_payment_decline(client):
 
 
 def test_capture_fail_void_succeeds(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
     client.post(f"/orders/{order_id}/authorize", json={"card_number": "4000000000000341", "exp_month": 12, "exp_year": 2028, "cvv": "123"})
 
@@ -175,7 +192,7 @@ def test_capture_fail_void_succeeds(client):
 
 
 def test_capture_fail_void_fails(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
     client.post(f"/orders/{order_id}/authorize", json={"card_number": "4000000000009995", "exp_month": 12, "exp_year": 2028, "cvv": "123"})
 
@@ -187,7 +204,7 @@ def test_capture_fail_void_fails(client):
 
 
 def test_fulfillment_failure(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
     client.post(f"/orders/{order_id}/authorize", json={"card_number": "4000000000000259", "exp_month": 12, "exp_year": 2028, "cvv": "123"})
 
@@ -199,17 +216,48 @@ def test_fulfillment_failure(client):
 
 
 def test_create_order_rejects_zero_amount(client):
-    response = client.post("/orders", json={"amount": 0})
+    response = client.post("/orders", json=_valid_create_payload(amount=0))
     assert response.status_code == 422
 
 
 def test_create_order_rejects_negative_amount(client):
-    response = client.post("/orders", json={"amount": -10.00})
+    response = client.post("/orders", json=_valid_create_payload(amount=-10.00))
+    assert response.status_code == 422
+
+
+def test_create_order_rejects_zero_quantity(client):
+    response = client.post("/orders", json=_valid_create_payload(quantity=0))
+    assert response.status_code == 422
+
+
+def test_create_order_rejects_negative_quantity(client):
+    response = client.post("/orders", json=_valid_create_payload(quantity=-1))
+    assert response.status_code == 422
+
+
+def test_create_order_rejects_missing_event_id(client):
+    payload = _valid_create_payload()
+    del payload["event_id"]
+    response = client.post("/orders", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_order_rejects_missing_section(client):
+    payload = _valid_create_payload()
+    del payload["section"]
+    response = client.post("/orders", json=payload)
+    assert response.status_code == 422
+
+
+def test_create_order_rejects_missing_row(client):
+    payload = _valid_create_payload()
+    del payload["row"]
+    response = client.post("/orders", json=payload)
     assert response.status_code == 422
 
 
 def test_get_order(client):
-    create = client.post("/orders", json={"amount": 75.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=75.00))
     order_id = create.json()["id"]
 
     response = client.get(f"/orders/{order_id}")
@@ -223,7 +271,7 @@ def test_get_order_not_found(client):
 
 
 def test_invalid_transition_returns_400(client):
-    create = client.post("/orders", json={"amount": 50.00})
+    create = client.post("/orders", json=_valid_create_payload(amount=50.00))
     order_id = create.json()["id"]
 
     # Try to complete without authorizing first

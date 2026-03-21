@@ -20,6 +20,10 @@ orchestrator = Orchestrator(payment_provider=StubPaymentProvider())
 
 
 class CreateOrderRequest(BaseModel):
+    event_id: str
+    quantity: int
+    section: str
+    row: str
     amount: float
 
     @field_validator("amount")
@@ -27,6 +31,13 @@ class CreateOrderRequest(BaseModel):
     def amount_must_be_positive(cls, v: float) -> float:
         if v <= 0:
             raise ValueError("amount must be greater than 0")
+        return v
+
+    @field_validator("quantity")
+    @classmethod
+    def quantity_must_be_positive(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("quantity must be greater than 0")
         return v
 
 
@@ -82,7 +93,13 @@ def _get_order_or_404(order_id: str) -> Order:
 
 @app.post("/orders", status_code=201)
 def create_order(request: CreateOrderRequest):
-    order = Order(amount=request.amount)
+    order = Order(
+        event_id=request.event_id,
+        quantity=request.quantity,
+        section=request.section,
+        row=request.row,
+        amount=request.amount,
+    )
     store.save(order)
     return order
 
