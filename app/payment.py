@@ -13,7 +13,7 @@ FULFILLMENT_FAIL_CARD = "4000000000000259"
 
 class PaymentProvider(ABC):
     @abstractmethod
-    def authorize(self, card_number: str, amount: float) -> PaymentResult: ...
+    def authorize(self, card_number: str, amount_cents: int) -> PaymentResult: ...
 
     @abstractmethod
     def capture(self, authorization_id: str) -> PaymentResult: ...
@@ -27,7 +27,7 @@ class StubPaymentProvider(PaymentProvider):
         # Maps authorization_id -> card_number for behavior lookup
         self._authorizations: Dict[str, str] = {}
 
-    def authorize(self, card_number: str, amount: float) -> PaymentResult:
+    def authorize(self, card_number: str, amount_cents: int) -> PaymentResult:
         if card_number == DECLINE_CARD:
             return PaymentResult(success=False, error="card declined")
 
