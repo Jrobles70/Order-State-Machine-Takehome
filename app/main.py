@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Path, Request
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 
@@ -122,7 +123,10 @@ def create_order(request: CreateOrderRequest):
     response_model=Order,
     summary="Get order details",
     description="Returns the current state and full transition history of an order.",
-    responses={404: {"model": ErrorResponse, "description": "Order not found", "content": {"application/json": {"example": {"detail": "Order not found"}}}}},
+    responses={
+        404: {"model": ErrorResponse, "description": "Order not found", "content": {"application/json": {"example": {"detail": "Order not found"}}}},
+        422: {"description": "Validation error", "content": {"application/json": {"example": {"detail": [{"type": "greater_than", "loc": ["body", "amount_cents"], "msg": "Input should be greater than 0", "input": -5, "ctx": {"gt": 0}}]}}}},
+    },
 )
 def get_order(order_id: str = Path(..., description="The order UUID", examples=["550e8400-e29b-41d4-a716-446655440000"])):
     return _get_order_or_404(order_id)
