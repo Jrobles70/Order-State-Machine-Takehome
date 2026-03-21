@@ -16,6 +16,11 @@ class OrderState(str, Enum):
     NEEDS_ATTENTION = "needs_attention"
 
 
+class Currency(str, Enum):
+    USD = "USD"
+    CAD = "CAD"
+
+
 class TransitionError(BaseModel):
     action: str
     message: str
@@ -36,7 +41,8 @@ class Order(BaseModel):
     quantity: int
     section: str
     row: str
-    amount: float
+    amount_cents: int
+    currency: Currency
     last4: Optional[str] = None
     exp_month: Optional[int] = None
     exp_year: Optional[int] = None

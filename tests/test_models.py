@@ -46,13 +46,29 @@ def test_history_entry_with_errors():
     assert entry.errors[1].action == "void"
 
 
-def test_order_creation():
-    from app.models import Order
+def test_currency_enum_values():
+    from app.models import Currency
 
-    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=99.99)
+    assert Currency.USD.value == "USD"
+    assert Currency.CAD.value == "CAD"
+
+
+def test_currency_enum_rejects_invalid():
+    from app.models import Currency
+    import pytest
+
+    with pytest.raises(ValueError):
+        Currency("EUR")
+
+
+def test_order_creation():
+    from app.models import Order, Currency
+
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount_cents=9999, currency=Currency.USD)
     assert order.id is not None
     assert order.current_state.value == "initialized"
-    assert order.amount == 99.99
+    assert order.amount_cents == 9999
+    assert order.currency == Currency.USD
     assert order.last4 is None
     assert order.authorization_id is None
     assert order.exp_month is None
@@ -64,7 +80,7 @@ def test_order_creation():
 def test_order_add_history():
     from app.models import HistoryEntry, Order, OrderState
 
-    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount=50.00)
+    order = Order(event_id="EVT-001", quantity=2, section="A", row="1", amount_cents=5000, currency="USD")
     entry = HistoryEntry(
         from_state=OrderState.INITIALIZED,
         to_state=OrderState.PAYMENT_AUTHORIZED,
