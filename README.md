@@ -25,7 +25,7 @@ initialized → payment_authorized → captured → complete
 ## How to Run
 
 ### Prerequisites
-- Python 3.12+
+- Python 3.12+ installed and available on your `PATH` as `python3.12`
 
 ### Setup
 ```bash
