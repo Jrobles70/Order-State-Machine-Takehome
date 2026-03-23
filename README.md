@@ -102,3 +102,5 @@ make test
 ## AI Usage
 
 This project was built with [Claude Code](https://claude.com/claude-code). I used AI-assisted brainstorming to explore requirements, edge cases, and design tradeoffs before writing any code, then produced a detailed implementation plan. From there, the plan was executed in small iterative steps using test-driven development — writing failing tests first, implementing just enough to pass, then refining. Every step was reviewed and validated before moving on.
+
+The `docs/superpowers/` directory contains design specs and plans generated during the process. I wouldn't normally commit these to a repo, but I've included them here as examples of how the AI-assisted workflow documented decisions along the way.
