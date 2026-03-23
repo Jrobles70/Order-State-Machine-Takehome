@@ -34,6 +34,8 @@ initialized → payment_authorized → captured → complete
            ↘ rejected (payment declined)
 ```
 
+**Why `captured` is a separate state** — The challenge spec describes completion as a single step (`payment_authorized → complete`), but real payment flows have distinct capture and fulfillment phases that fail differently and need different recovery. Splitting this into `captured` (money taken) and `complete` (tickets delivered) lets the state machine distinguish between "capture failed, void the auth" and "capture succeeded but fulfillment failed, escalate with money already taken." The `/complete` endpoint still presents this as one step to the client — the intermediate state is an internal detail.
+
 ## How to Run
 
 ### Prerequisites
